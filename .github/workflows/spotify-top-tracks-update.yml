@@ -10,11 +10,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: "3.x"
 
@@ -23,17 +20,17 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests
 
-      - name: Fetch and Update Spotify Playlists
+      - name: Update Spotify Playlists
         env:
           SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
           SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
           SPOTIFY_REFRESH_TOKEN: ${{ secrets.SPOTIFY_REFRESH_TOKEN }}
         run: |
+          python <<EOF
           import os
           import requests
           import base64
 
-          # Spotify API URLs
           token_url = 'https://accounts.spotify.com/api/token'
           top_tracks_url = 'https://api.spotify.com/v1/me/top/tracks'
 
@@ -43,7 +40,6 @@ jobs:
               '4_weeks': '5VPzKaO7xse7luhA3yHVNj'
           }
 
-          # Spotify authentication
           client_id = os.getenv('SPOTIFY_CLIENT_ID')
           client_secret = os.getenv('SPOTIFY_CLIENT_SECRET')
           refresh_token = os.getenv('SPOTIFY_REFRESH_TOKEN')
@@ -88,13 +84,11 @@ jobs:
                   'uris': track_uris
               }
 
-              # Clear playlist before updating
               requests.put(url, headers=headers, json={'uris': []})
-              # Add new tracks
               response = requests.post(url, headers=headers, json=data)
               return response.status_code
 
-          # Update playlists with top tracks from different time ranges
           update_playlist(playlists['1_year'], get_top_tracks('long_term'))
           update_playlist(playlists['6_months'], get_top_tracks('medium_term'))
           update_playlist(playlists['4_weeks'], get_top_tracks('short_term'))
+          EOF
