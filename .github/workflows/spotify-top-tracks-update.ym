@@ -1,0 +1,99 @@
+name: Spotify Top Tracks Update
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Chạy mỗi ngày lúc 00:00
+
+jobs:
+  update-playlists:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Fetch and Update Spotify Playlists
+        env:
+          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+          SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+          SPOTIFY_REFRESH_TOKEN: ${{ secrets.SPOTIFY_REFRESH_TOKEN }}
+        run: |
+          import os
+          import requests
+          import base64
+
+          # Spotify API URLs
+          token_url = 'https://accounts.spotify.com/api/token'
+          top_tracks_url = 'https://api.spotify.com/v1/me/top/tracks'
+
+          playlists = {
+              '1_year': '0z4kiW6MRglJOGiDvfinFj',
+              '6_months': '0KnhM3h7S5CYPk1p1JQhX7',
+              '4_weeks': '5VPzKaO7xse7luhA3yHVNj'
+          }
+
+          # Spotify authentication
+          client_id = os.getenv('SPOTIFY_CLIENT_ID')
+          client_secret = os.getenv('SPOTIFY_CLIENT_SECRET')
+          refresh_token = os.getenv('SPOTIFY_REFRESH_TOKEN')
+
+          def get_access_token():
+              auth_str = f'{client_id}:{client_secret}'
+              b64_auth_str = base64.b64encode(auth_str.encode()).decode()
+
+              headers = {
+                  'Authorization': f'Basic {b64_auth_str}',
+                  'Content-Type': 'application/x-www-form-urlencoded'
+              }
+              data = {
+                  'grant_type': 'refresh_token',
+                  'refresh_token': refresh_token
+              }
+
+              response = requests.post(token_url, headers=headers, data=data)
+              response_data = response.json()
+              return response_data.get('access_token')
+
+          def get_top_tracks(time_range):
+              access_token = get_access_token()
+              headers = {
+                  'Authorization': f'Bearer {access_token}'
+              }
+              params = {
+                  'time_range': time_range,
+                  'limit': 50
+              }
+              response = requests.get(top_tracks_url, headers=headers, params=params)
+              return [track['uri'] for track in response.json().get('items', [])]
+
+          def update_playlist(playlist_id, track_uris):
+              access_token = get_access_token()
+              headers = {
+                  'Authorization': f'Bearer {access_token}',
+                  'Content-Type': 'application/json'
+              }
+              url = f'https://api.spotify.com/v1/playlists/{playlist_id}/tracks'
+              data = {
+                  'uris': track_uris
+              }
+
+              # Clear playlist before updating
+              requests.put(url, headers=headers, json={'uris': []})
+              # Add new tracks
+              response = requests.post(url, headers=headers, json=data)
+              return response.status_code
+
+          # Update playlists with top tracks from different time ranges
+          update_playlist(playlists['1_year'], get_top_tracks('long_term'))
+          update_playlist(playlists['6_months'], get_top_tracks('medium_term'))
+          update_playlist(playlists['4_weeks'], get_top_tracks('short_term'))
