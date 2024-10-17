@@ -1,8 +1,9 @@
 name: Spotify Top Tracks Update
 
 on:
+  push:
   schedule:
-    - cron: '0 0 * * *'  # Chạy mỗi ngày lúc 00:00
+    - cron: "0 0 * * *"
 
 jobs:
   update-playlists:
@@ -15,7 +16,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: '3.x'
+          python-version: "3.x"
 
       - name: Install dependencies
         run: |
