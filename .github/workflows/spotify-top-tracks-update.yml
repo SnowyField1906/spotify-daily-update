@@ -1,7 +1,6 @@
-name: Spotify Top Tracks Update
+name: Spotify Playlist Daily Update
 
 on:
-  push:
   schedule:
     - cron: "0 0 * * *"
 
@@ -32,13 +31,19 @@ jobs:
           import base64
 
           token_url = 'https://accounts.spotify.com/api/token'
-          top_tracks_url = 'https://api.spotify.com/v1/me/top/tracks'
+          playlists_url = 'https://api.spotify.com/v1/playlists'
 
-          playlists = {
+          playlists_to_update = {
               '1_year': '0z4kiW6MRglJOGiDvfinFj',
               '6_months': '0KnhM3h7S5CYPk1p1JQhX7',
               '4_weeks': '5VPzKaO7xse7luhA3yHVNj'
           }
+
+          playlists_to_sort = [
+              '0fttleBNo8RglYCOrJBscG',
+              '4hEsiGE5GnGl1gaF4ly29r',
+              '2y07GHlHy5Qlnz9flg8AZX'
+          ]
 
           client_id = os.getenv('SPOTIFY_CLIENT_ID')
           client_secret = os.getenv('SPOTIFY_CLIENT_SECRET')
@@ -70,7 +75,7 @@ jobs:
                   'time_range': time_range,
                   'limit': 50
               }
-              response = requests.get(top_tracks_url, headers=headers, params=params)
+              response = requests.get('https://api.spotify.com/v1/me/top/tracks', headers=headers, params=params)
               return [track['uri'] for track in response.json().get('items', [])]
 
           def update_playlist(playlist_id, track_uris):
@@ -79,16 +84,37 @@ jobs:
                   'Authorization': f'Bearer {access_token}',
                   'Content-Type': 'application/json'
               }
-              url = f'https://api.spotify.com/v1/playlists/{playlist_id}/tracks'
-              data = {
-                  'uris': track_uris
-              }
-
+              url = f'{playlists_url}/{playlist_id}/tracks'
+              
               requests.put(url, headers=headers, json={'uris': []})
-              response = requests.post(url, headers=headers, json=data)
-              return response.status_code
+              
+              requests.post(url, headers=headers, json={'uris': track_uris})
 
-          update_playlist(playlists['1_year'], get_top_tracks('long_term'))
-          update_playlist(playlists['6_months'], get_top_tracks('medium_term'))
-          update_playlist(playlists['4_weeks'], get_top_tracks('short_term'))
+          def get_playlist_tracks(playlist_id):
+              access_token = get_access_token()
+              headers = {
+                  'Authorization': f'Bearer {access_token}'
+              }
+              url = f'{playlists_url}/{playlist_id}/tracks'
+              response = requests.get(url, headers=headers)
+              items = response.json().get('items', [])
+              return [
+                  {
+                      'uri': item['track']['uri'],
+                      'name': item['track']['name']
+                  } for item in items
+              ]
+
+          def sort_playlist(playlist_id):
+              tracks = get_playlist_tracks(playlist_id)
+              sorted_tracks = sorted(tracks, key=lambda t: t['name'].lower())  
+              track_uris = [track['uri'] for track in sorted_tracks]
+              update_playlist(playlist_id, track_uris)
+
+          update_playlist(playlists_to_update['1_year'], get_top_tracks('long_term'))
+          update_playlist(playlists_to_update['6_months'], get_top_tracks('medium_term'))
+          update_playlist(playlists_to_update['4_weeks'], get_top_tracks('short_term'))
+
+          for playlist_id in playlists_to_sort:
+              sort_playlist(playlist_id)
           EOF
