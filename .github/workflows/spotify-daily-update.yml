@@ -30,6 +30,9 @@ jobs:
           import os
           import requests
           import base64
+          import locale
+
+          locale.setlocale(locale.LC_COLLATE, 'vi_VN.UTF-8')
 
           token_url = 'https://accounts.spotify.com/api/token'
           playlists_url = 'https://api.spotify.com/v1/playlists'
@@ -108,7 +111,7 @@ jobs:
 
           def sort_playlist(playlist_id):
               tracks = get_playlist_tracks(playlist_id)
-              sorted_tracks = sorted(tracks, key=lambda t: t['name'].lower())  
+              sorted_tracks = sorted(tracks, key=lambda t: locale.strxfrm(t['name'].lower()))
               track_uris = [track['uri'] for track in sorted_tracks]
               update_playlist(playlist_id, track_uris)
 
