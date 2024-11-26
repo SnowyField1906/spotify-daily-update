@@ -109,10 +109,15 @@ jobs:
 
           def sort_playlist(playlist_id):
               tracks = get_playlist_tracks(playlist_id)
+              if not tracks:
+                  return
+
               collator = pyuca.Collator()
-              sorted_tracks = sorted(tracks, key=lambda t: collator.sort_key(t['name'].lower()))  
-              track_uris = [track['uri'] for track in sorted_tracks]
-              update_playlist(playlist_id, track_uris)
+              sorted_tracks = sorted(tracks, key=lambda t: collator.sort_key(t['name'].lower()))
+              
+              if [t['uri'] for t in tracks] != [t['uri'] for t in sorted_tracks]:
+                  track_uris = [track['uri'] for track in sorted_tracks]
+                  update_playlist(playlist_id, track_uris)
 
           update_playlist(playlists_to_update['1_year'], get_top_tracks('long_term'))
           update_playlist(playlists_to_update['6_months'], get_top_tracks('medium_term'))
